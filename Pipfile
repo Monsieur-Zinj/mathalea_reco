@@ -1,0 +1,26 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pandas = ">=1.5.0"
+numpy = "*"
+pydantic = ">=1.8.2"
+requests = ">=2.26.0"
+scikit-learn = "*"
+
+[dev-packages]
+pytest = ">=7.0.0"
+black = "*"
+flake8 = "*"
+
+[requires]
+python_version = "3.9"
+
+[scripts]
+start = "python -m src.save_activity"
+update_db = "python -m src.update_synthesis"
+update_ex = "python -m src.update_exercises"
+format = "black ."
+lint = "flake8 ."

@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Environnement virtuel
+venv/
+env/
+.venv/
+.env/
+
+# Pipenv
+Pipfile.lock
+
+# IDE
+.vscode/
+.idea/
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Fichiers de log
+*.log
+
+# Fichiers temporaires
+*.tmp
+*.bak
+*.swp
+
+
+# data
+data/
