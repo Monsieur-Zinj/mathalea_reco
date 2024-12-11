@@ -137,7 +137,7 @@ class DataAnalyzer:
         df = df[columns]
         print("Columns after joining:")
         print(df.columns)
-        print(self.url_dict)
+        print(len(self.url_dict))
 
         # Rename columns and normalize scores
 

@@ -1,108 +1,232 @@
-from src.config import Config
-import requests
-import json
+"""
+Exercise Manager Module
+
+This module provides functionality to manage, update, and process exercise data
+for an educational platform. It includes methods to fetch the latest exercises
+from a remote source, process the data, and create both JSON and CSV outputs.
+
+Classes:
+    ExerciseManager: Manages all operations related to exercises.
+
+Functions:
+    main: Entry point of the script.
+"""
+
 import os
+import json
+import csv
+import logging
+from typing import Dict, Any
+import requests
+from src.config import Config
 
-# @dataclass
-# class Config:
-#     """Configuration for file paths and constants"""
-#     res_filename: str = "res.csv"
-#     url_filename: str = "mathAlea.html"
-#     meta_filename: str = "meta.csv"
-#     groupe_classe_filename: str = "eleve_groupe.csv"
-#     final_data_dir: str = "final_data"
-#     activity_dir: str = os.path.join("data", "Activités")
-#     source_data_dir: str = "source_data"
-#     data_dir: str = "data"  # Added data_dir attribute
-#     resultat_csv_filename: str = "resultat.csv"
-#     resultat_json_filename: str = "resultat.json"
-#     synthesis_data_dir: str = "synthesis_data"
-#     synthesis_csv_filename: str = "synthesis.csv"
-#     synthesis_json_filename: str = "synthesis.json"
+logger = logging.getLogger(__name__)
 
-#     exercices_dir: str = "exercices"
-#     exercices_json_filename: str = "exercices.json"
-    
-#     # Updated activity name to match the folder structure
-#     activity: str = os.getenv('MATHALEA_ACTIVITY', '1-Calcul_littéral')
+class ExerciseManager:
+    """
+    A class to manage exercise data operations.
 
-#     def __post_init__(self):
-#         # Ensure the activity is set correctly
-#         if not self.activity:
-#             self.activity = '1-Calcul_littéral'
+    This class provides methods to fetch, process, update, and export exercise data.
+    It interacts with both JSON and CSV file formats.
 
-# https://forge.apps.education.fr/coopmaths/mathalea/-/blob/main/src/json/allExercice.json
+    Attributes:
+        config (Config): Configuration object containing necessary settings.
+        exercices_json_path (str): Path to the JSON file storing exercise data.
+        exercices_csv_path (str): Path to the CSV file for storing interactive exercises.
+        themes_json_path (str): Path to the JSON file storing themes data.
+    """
+
+    def __init__(self, config: Config):
+        """
+        Initialize the ExerciseManager with configuration settings.
+
+        Args:
+            config (Config): Configuration object containing necessary settings.
+        """
+        self.config = config
+        self.exercices_json_path = os.path.join(config.data_dir, config.exercices_dir, config.exercices_json_filename)
+        self.exercices_csv_path = os.path.join(config.data_dir, config.exercices_dir, 'exercices.csv')
+        self.themes_json_path = os.path.join(config.data_dir, config.exercices_dir, 'themes.json')
+
+    def process_exercices_all_json(self, exercices: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Process the raw JSON data of exercises into a simplified dictionary format.
+
+        This method recursively searches through the input dictionary to find
+        exercise entries and restructures them into a flat dictionary with
+        exercise references as keys.
+
+        Args:
+            exercices (Dict[str, Any]): Raw exercise data in nested dictionary format.
+
+        Returns:
+            Dict[str, Any]: Processed dictionary with exercise references as keys.
+        """
+        result = {}
+
+        def process_item(item: Any):
+            """
+            Recursively process items in the exercise dictionary.
+
+            Args:
+                item (Any): The current item being processed.
+            """
+            if isinstance(item, dict):
+                for key, value in item.items():
+                    if isinstance(value, dict) and "ref" in value:
+                        result[value["ref"]] = value
+                    else:
+                        process_item(value)
+            elif isinstance(item, list):
+                for element in item:
+                    process_item(element)
+
+        process_item(exercices)
+        return result
+
+    def fetch_latest_exercices(self) -> Dict[str, Any]:
+        """
+        Fetch the latest exercises from the remote source.
+
+        This method sends a GET request to the specified URL and processes
+        the returned JSON data.
+
+        Returns:
+            Dict[str, Any]: Processed dictionary of latest exercises, or an empty dict if an error occurs.
+        """
+        url = "https://forge.apps.education.fr/coopmaths/mathalea/-/raw/main/src/json/allExercice.json"
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            return self.process_exercices_all_json(response.json())
+        except requests.RequestException as e:
+            logger.error(f"Error fetching exercises: {e}")
+            return {}
+        except json.JSONDecodeError:
+            logger.error("Error decoding JSON response")
+            return {}
+
+    def update_exercices(self):
+        """
+        Update the local JSON file with the latest exercises.
+
+        This method fetches the latest exercises and writes them to the local JSON file.
+        If the fetch operation fails, no update is performed.
+        """
+        logger.info(f"Updating exercises from {self.exercices_json_path}")
+        
+        latest_exercices = self.fetch_latest_exercices()
+        if not latest_exercices:
+            return
+
+        with open(self.exercices_json_path, 'w') as f:
+            json.dump(latest_exercices, f, indent=4)
+
+        logger.info(f"Exercises updated successfully to {self.exercices_json_path}")
+
+    def create_themes_json(self):
+        """
+        Create a themes.json file based on the levelsThemesList.json from the remote source.
+
+        This method fetches the JSON data from the specified URL, processes it to extract
+        themes and sub-themes, and writes the result to a themes.json file.
+        """
+        url = "https://forge.apps.education.fr/coopmaths/mathalea/-/raw/main/src/json/levelsThemesList.json"
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            data = response.json()
+
+            themes = {}
+            for key, value in data.items():
+                if isinstance(value, dict) and "titre" in value and "sousThemes" in value:
+                    themes[key] = {
+                        "titre": value["titre"],
+                        "sousThemes": value["sousThemes"]
+                    }
+
+            with open(self.themes_json_path, 'w', encoding='utf-8') as f:
+                json.dump(themes, f, ensure_ascii=False, indent=2)
+
+            logger.info(f"Themes JSON file created successfully: {self.themes_json_path}")
+        except requests.RequestException as e:
+            logger.error(f"Error fetching themes data: {e}")
+        except json.JSONDecodeError:
+            logger.error("Error decoding JSON response for themes")
+        except IOError as e:
+            logger.error(f"Error writing themes JSON file: {e}")
 
 
+    def process_exercise_reference(self, ref):
+        # Charge les données de thèmes
+        with open(self.themes_json_path, 'r', encoding='utf-8') as f:
+            themes_data = json.load(f)
 
-    # exercices.json
-# {
-#     "5e": {
-#         "5A1": {
-#             "5A10": {
-#                 "ref": "5A10",
-#                 "uuid": "4828d",
-#                 "url": "5e/5A10.js",
-#                 "titre": "\u00c9crire la liste de tous les diviseurs d'un entier",
-#                 "dateDeModifImportante": "28/10/2021",
-#                 "tags": {
-#                     "interactif": true,
-#                     "interactifType": "mathLive"
-#                 }
-#             },
-# chercher récursivement la "ref" pour chaque exercice
-# le transformer en dict avec la ref comme clé et le reste comme valeur
-def process_exercices_all_json(exercices):
-    result = {}
+        theme = "Unknown"
+        sub_theme = "Unknown"
 
-    def process_item(item):
-        if isinstance(item, dict):
-            for key, value in item.items():
-                if isinstance(value, dict) and "ref" in value:
-                    # Found an exercise, add it to the result
-                    result[value["ref"]] = value
-                else:
-                    # Recurse into nested dictionaries
-                    process_item(value)
-        elif isinstance(item, list):
-            # Recurse into lists
-            for element in item:
-                process_item(element)
+        # Extrait le niveau et la clé de thème
+        level = ref[0]
+        theme_key = ref[:3]
 
-    process_item(exercices)
-    print(json.dumps(result, indent=4))
-    return result
+        # Cherche le thème correspondant pour le niveau
+        for key, value in themes_data.items():
+            if key.startswith(level) and theme_key.startswith(key):
+                theme = value['titre']
+                # Cherche le sous-thème correspondant
+                for sub_key, sub_value in value['sousThemes'].items():
+                    if ref.startswith(sub_key):
+                        sub_theme = sub_value
+                        break
+                break
 
-def update_exercice():
+        return {
+            'theme': theme,
+            'sub_theme': sub_theme
+        }
+
+    def create_exercices_csv(self):
+        """
+        Create a CSV file containing only interactive exercises with theme information.
+
+        This method reads the JSON file of all exercises, filters for interactive ones,
+        and writes them to a CSV file. The CSV includes the reference, title, UUID,
+        theme, and sub-theme of each exercise.
+        """
+        try:
+            with open(self.exercices_json_path, 'r', encoding='utf-8') as json_file:
+                exercices = json.load(json_file)
+        except FileNotFoundError:
+            logger.error(f"JSON file not found: {self.exercices_json_path}")
+            return
+
+        csv_data = [['refs', 'titre', 'uuid', 'theme', 'sub_theme']]
+        for ref, data in exercices.items():
+            if data.get('tags', {}).get('interactif') == True:
+                theme_info = self.process_exercise_reference(ref)
+                csv_data.append([ref, data['titre'], data['uuid'], theme_info['theme'], theme_info['sub_theme']])
+
+        try:
+            with open(self.exercices_csv_path, 'w', newline='', encoding='utf-8') as csv_file:
+                writer = csv.writer(csv_file)
+                writer.writerows(csv_data)
+            logger.info(f"CSV file with interactive exercises created successfully: {self.exercices_csv_path}")
+        except IOError as e:
+            logger.error(f"Error writing CSV file: {e}")
+
+def main():
+    """
+    Main function to run the exercise update and file creation processes.
+
+    This function initializes logging, creates an ExerciseManager instance,
+    and calls the methods to update exercises, create the themes JSON file, and create the CSV file.
+    """
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
     config = Config()
-    exercices_json_path = os.path.join(config.data_dir, config.exercices_dir, config.exercices_json_filename)
-    print(f"Updating exercices from {exercices_json_path}")
-    # Get the JSON data if it exists
-    try:
-        with open(exercices_json_path, 'r') as f:
-            exercices = json.load(f)
-    except FileNotFoundError:
-        exercices = {}
-
-    # Get the latest exercices from the API
-    url = "https://forge.apps.education.fr/coopmaths/mathalea/-/raw/main/src/json/allExercice.json"
-    response = requests.get(url)
-    response.raise_for_status()
-    try:
-        latest_exercices = process_exercices_all_json(response.json())
-    except json.JSONDecodeError:
-        print("Error: Could not decode JSON response")
-        return
-
-    # Update the exercices
-    
-
-    # Save the updated exercices or create, erase and save
-    with open(exercices_json_path, 'w') as f:
-        json.dump(latest_exercices, f, indent=4)
-
-    print(f"Exercices updated successfully to {exercices_json_path}")
-
+    manager = ExerciseManager(config)
+    manager.update_exercices()
+    manager.create_themes_json()
+    manager.create_exercices_csv()
 
 if __name__ == "__main__":
-    update_exercice()
+    main()

@@ -7,7 +7,7 @@ def process_and_analyze_data(source_data_dir, config):
     # Process input files
     print("Processing data files...")
     df_res = data_processor.process_res()
-    df_meta = data_processor.process_meta()
+    # df_meta = data_processor.process_meta()
     df_groupe = data_processor.process_eleve_groupe()
 
     # Process URL

@@ -66,6 +66,9 @@ if __name__ == "__main__":
     matrix_nan[mask] = np.nan
     print("\nMatrice avec des valeurs manquantes:")
     print(matrix_nan)
+    # remove cols/rows if all values are NaN
+    matrix_nan = matrix_nan[~np.all(np.isnan(matrix_nan), axis=1)]
+    matrix_nan = matrix_nan[:, ~np.all(np.isnan(matrix_nan), axis=0)]
 
 
     completed_matrix_svd = svd_matrix_completion(matrix_nan)

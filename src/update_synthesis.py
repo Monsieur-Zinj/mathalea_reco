@@ -39,7 +39,7 @@ def update_synthesis_files(synthesis_csv, synthesis_json, new_json, activity_nam
 
     # Mettre à jour les exercices
     for exercise_id, exercise_info in new_data['exercises'].items():
-        if False: # exercise_id not in synthesis_data['exercises']:
+        if  exercise_id not in synthesis_data['exercises']:
             synthesis_data['exercises'][exercise_id] = exercise_info
             synthesis_data['exercises'][exercise_id]['activities'] = [activity_name]
         else:
