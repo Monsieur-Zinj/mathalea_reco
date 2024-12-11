@@ -136,52 +136,59 @@ def update_synthesis_files(synthesis_csv, synthesis_json, new_json, activity_nam
 
 
 def main():
-    # récupérer l'argument : le nom de l'activité
-    if len(sys.argv) > 1:
-        activity = sys.argv[1]
-    else:
-        raise ValueError("Veuillez fournir le nom de l'activité en argument")
-    
-    # Charger la configuration
     config = Config()
 
     synthesis_data_dir = os.path.join(config.data_dir, config.synthesis_data_dir)
     synthesis_csv = os.path.join(synthesis_data_dir, config.synthesis_csv_filename)
     synthesis_json = os.path.join(synthesis_data_dir, config.synthesis_json_filename)
 
-    activity_dir = os.path.join(config.activity_dir, activity)
-    source_data_activity_dir = os.path.join(activity_dir, config.source_data_dir)
-    activity_json = os.path.join(activity_dir, config.final_data_dir, config.resultat_json_filename)
-    # activity_csv = os.path.join(activity_dir, config.final_data_dir, config.resultat_csv_filename)
+    # Récupérer l'argument : le nom de l'activité ou None
+    activity = sys.argv[1] if len(sys.argv) > 1 else None
 
-    if not os.path.exists(activity_dir):
-        raise FileNotFoundError(f"Le dossier de l'activité '{activity}' n'existe pas dans {config.activity_dir}")
-    
-    if not os.path.exists(source_data_activity_dir):
-        raise FileNotFoundError(f"Le dossier 'source_data' n'existe pas dans {activity_dir}")
-    
-    if not os.path.exists(synthesis_data_dir):
-        os.makedirs(synthesis_data_dir)
+    # Si aucune activité n'est spécifiée, on traite toutes les activités
+    if activity is None:
+        activities = [d for d in os.listdir(config.activity_dir) 
+                      if os.path.isdir(os.path.join(config.activity_dir, d))]
+    else:
+        activities = [activity]
 
-    if not os.path.exists(synthesis_csv):
-        with open(synthesis_csv, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(['Élève', 'Classe', 'Groupe'])
-    
-    if not os.path.exists(synthesis_json):
-        with open(synthesis_json, 'w') as f:
-            json.dump({
-                "tags": {},
-                "exercises": {},
-                "students": {},
-                "metadata": {
-                    "created_at": datetime.now().isoformat(),
-                    "updated_at": datetime.now().isoformat(),
-                    "synthesized_activities": []
-                }
-            }, f, indent=2)
-    
-    update_synthesis_files(synthesis_csv, synthesis_json, activity_json, activity)
+    for activity in activities:
+        activity_dir = os.path.join(config.activity_dir, activity)
+        source_data_activity_dir = os.path.join(activity_dir, config.source_data_dir)
+        activity_json = os.path.join(activity_dir, config.final_data_dir, config.resultat_json_filename)
+
+        if not os.path.exists(activity_dir):
+            print(f"Le dossier de l'activité '{activity}' n'existe pas dans {config.activity_dir}")
+            continue
+
+        if not os.path.exists(source_data_activity_dir):
+            print(f"Le dossier 'source_data' n'existe pas dans {activity_dir}")
+            continue
+
+        if not os.path.exists(synthesis_data_dir):
+            os.makedirs(synthesis_data_dir)
+
+        if not os.path.exists(synthesis_csv):
+            with open(synthesis_csv, 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(['Élève', 'Classe', 'Groupe'])
+
+        if not os.path.exists(synthesis_json):
+            with open(synthesis_json, 'w') as f:
+                json.dump({
+                    "tags": {},
+                    "exercises": {},
+                    "students": {},
+                    "metadata": {
+                        "created_at": datetime.now().isoformat(),
+                        "updated_at": datetime.now().isoformat(),
+                        "synthesized_activities": []
+                    }
+                }, f, indent=2)
+
+        update_synthesis_files(synthesis_csv, synthesis_json, activity_json, activity)
+
+    print("Mise à jour de la synthèse terminée.")
 
 if __name__ == "__main__":
     main()
