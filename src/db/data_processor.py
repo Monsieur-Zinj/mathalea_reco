@@ -102,7 +102,7 @@ class URLProcessor:
             # exercise_dict.get("n", ""),
             exercise_dict.get("s", ""),
         ]
-        components.extend(exercise_dict.get(f"s{i}", "") for i in range(2, 10))
+        components.extend(exercise_dict.get(f"s{i}", "NA") for i in range(2, 10))
 
         return {
             "super_id": "_".join(str(comp) for comp in components if comp),
